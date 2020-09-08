@@ -1,9 +1,9 @@
 const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
-const { response } = require('express');
 const app = express();
-
+const Person = require('./models/phonebook');
+const { Mongoose } = require('mongoose');
 
 
 app.use(express.static('build'));
@@ -11,70 +11,100 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
 morgan.token('body',(req,res) => JSON.stringify(req.body));
-let phonebook = [
-    {
-        name: "Arto Hellas",
-        number: "044-123456",
-        id: 0
-    },
-    {
-        name: "Ngo Kim Son",
-        number: "024-333333",
-        id: 1
-    },
-    {
-        name: "Le Hoang Vu",
-        number: "011-654321",
-        id: 2
-    },
-];
 
-app.get('/api/persons',(req,res) => {
-    res.json(phonebook);
-});
-
-app.get('/api/persons/:id', (req,res) => {
-    const id = Number(req.params.id);
-    const person = phonebook.find(person => person.id === id);
-    if(person){
+app.get('/api/persons',(req,res,next) => {
+    Person.find({})
+        .then(person => {
         res.json(person);
-    } else {
-        res.status(404).end()
-    }
+        })
+        .catch(err => next(err));
 });
+
+app.get('/api/persons/:id', (req,res,next) => {
+    const id = req.params.id;
+    Person.findById(id)
+        .then(result => {
+            if(result){
+                res.json(result)
+            } else {
+                res.status(404).end()
+            }
+        })
+        .catch(err => next(err))
+    }
+);
 
 app.get('/api/info',(req,res) => {
-    res.end(`
-        <div>Phonebook has info for ${phonebook.length} people</div>
+    Person.find({}).then(person => {
+        const count = person.length;
+        res.end(`
+        <div>Phonebook has info for ${count} people</div>
         <div>${new Date}</div>
-    `)
+    `);
+    })
+    
 });
 
-app.post('/api/persons', (req,res) => {
-    const id = Math.floor(Math.random()*1000);
-    const person = req.body;
-    console.log(person.name)
-    if(!person.name || !person.number) {
-        return res.status(400).json({
-            error: 'missing name or number'
-            }
-        )
+app.post('/api/persons', (req,res,next) => {
+    const body = req.body;
+    // if(body === undefined){
+    //     return res.status(400).json({error:'content not found'})
+    // };
+    // if(!body.name || !body.number) {
+    //     return res.status(400).json({
+    //         error: 'missing name or number'
+    //         }
+    //     )
+    // };
+    const person = new Person({
+        name: body.name,
+        number: body.number
+    });
+
+    person.save()
+        .then(addedPerson => {
+        res.json(addedPerson)
+        })
+        .catch(err => next(err));
+});
+
+
+app.put('/api/persons/:id',(req,res,next) => {
+    const id = req.params.id;
+    const newPerson = {
+        name: req.body.name,
+        number: req.body.number
     }
+    Person.findByIdAndUpdate(id,newPerson,{new:true})
+        .then(result => res.json(result))
+        .catch(err => next(err))
+});
 
-    if(phonebook.find(phonebookLine => phonebookLine.name = person.name)){
-        return res.status(400).json({error: `${person.name} is already added to the phonebook`})
+
+app.delete('/api/persons/:id', (req,res,next) => {
+    const id = req.params.id;
+    Person.findByIdAndDelete(id)
+        .then(result => {
+            res.status(204).end()
+        })
+        .catch(err => next(err))
+    }
+);
+
+const unknowEndpoint = (req,res) => {
+    res.status(404).send({error:'Unknown endpoint, try another one'})
+};
+
+app.use(unknowEndpoint)
+
+const errorHandler = (err,req,res,next) => {
+    if(err.name === "ValidationError"){
+        res.status(400).send({error:"Missing name or number"});
     };
-
-    phonebook = phonebook.concat({...person,id: id});
-    res.json(person);
-})
-
-app.delete('/api/persons/:id', (req,res) => {
-    const id = Number(req.params.id);
-    phonebook = phonebook.filter(person => person.id !== id);
-    console.log(phonebook);
-    res.status(204).end();
-})
+    res.status(404).send({error: "Not Found"})
+    next(err)
+};
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT,() =>{
