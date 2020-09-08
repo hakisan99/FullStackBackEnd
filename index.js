@@ -47,15 +47,6 @@ app.get('/api/info', (req, res) => {
 
 app.post('/api/persons', (req, res, next) => {
     const body = req.body;
-    // if(body === undefined){
-    //     return res.status(400).json({error:'content not found'})
-    // };
-    // if(!body.name || !body.number) {
-    //     return res.status(400).json({
-    //         error: 'missing name or number'
-    //         }
-    //     )
-    // };
     const person = new Person({
         name: body.name,
         number: body.number
@@ -101,9 +92,9 @@ const errorHandler = (err, req, res, next) => {
     if (err.name === "ValidationError") {
         res.status(400).send({ error: err.message });
     };
-    
-    if(err.name ==="MongoError") {
-        res.status(400).send({error: "Duplicate, try another name"})
+
+    if (err.name === "MongoError") {
+        res.status(400).send({ error: "Duplicate, try another name" })
     };
     res.status(404).send({ error: "Not Found" })
     next(err)
