@@ -10,31 +10,31 @@ app.use(express.static('build'));
 app.use(cors());
 app.use(express.json());
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
-morgan.token('body',(req,res) => JSON.stringify(req.body));
+morgan.token('body', (req, res) => JSON.stringify(req.body));
 
-app.get('/api/persons',(req,res,next) => {
+app.get('/api/persons', (req, res, next) => {
     Person.find({})
         .then(person => {
-        res.json(person);
+            res.json(person);
         })
         .catch(err => next(err));
 });
 
-app.get('/api/persons/:id', (req,res,next) => {
+app.get('/api/persons/:id', (req, res, next) => {
     const id = req.params.id;
     Person.findById(id)
         .then(result => {
-            if(result){
+            if (result) {
                 res.json(result)
             } else {
                 res.status(404).end()
             }
         })
         .catch(err => next(err))
-    }
+}
 );
 
-app.get('/api/info',(req,res) => {
+app.get('/api/info', (req, res) => {
     Person.find({}).then(person => {
         const count = person.length;
         res.end(`
@@ -42,10 +42,10 @@ app.get('/api/info',(req,res) => {
         <div>${new Date}</div>
     `);
     })
-    
+
 });
 
-app.post('/api/persons', (req,res,next) => {
+app.post('/api/persons', (req, res, next) => {
     const body = req.body;
     // if(body === undefined){
     //     return res.status(400).json({error:'content not found'})
@@ -63,50 +63,54 @@ app.post('/api/persons', (req,res,next) => {
 
     person.save()
         .then(addedPerson => {
-        res.json(addedPerson)
+            res.json(addedPerson)
         })
         .catch(err => next(err));
 });
 
 
-app.put('/api/persons/:id',(req,res,next) => {
+app.put('/api/persons/:id', (req, res, next) => {
     const id = req.params.id;
     const newPerson = {
         name: req.body.name,
         number: req.body.number
     }
-    Person.findByIdAndUpdate(id,newPerson,{new:true})
+    Person.findByIdAndUpdate(id, newPerson, { new: true })
         .then(result => res.json(result))
         .catch(err => next(err))
 });
 
 
-app.delete('/api/persons/:id', (req,res,next) => {
+app.delete('/api/persons/:id', (req, res, next) => {
     const id = req.params.id;
     Person.findByIdAndDelete(id)
         .then(result => {
             res.status(204).end()
         })
         .catch(err => next(err))
-    }
+}
 );
 
-const unknowEndpoint = (req,res) => {
-    res.status(404).send({error:'Unknown endpoint, try another one'})
+const unknowEndpoint = (req, res) => {
+    res.status(404).send({ error: 'Unknown endpoint, try another one' })
 };
 
 app.use(unknowEndpoint)
 
-const errorHandler = (err,req,res,next) => {
-    if(err.name === "ValidationError"){
-        res.status(400).send({error:"Missing name or number"});
+const errorHandler = (err, req, res, next) => {
+    if (err.name === "ValidationError") {
+        res.status(400).send({ error: err.message });
     };
-    res.status(404).send({error: "Not Found"})
+    
+    if(err.name ==="MongoError") {
+        res.status(400).send({error: "Duplicate, try another name"})
+    };
+    res.status(404).send({ error: "Not Found" })
     next(err)
 };
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT,() =>{
+app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
 });
